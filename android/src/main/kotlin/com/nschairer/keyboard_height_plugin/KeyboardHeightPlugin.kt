@@ -134,11 +134,18 @@ class KeyboardHeightPlugin : FlutterPlugin, EventChannel.StreamHandler, Activity
         // 计算键盘占用的像素高度
         var keyboardHeightPx = screenHeight - visibleFrameHeight
         
-        // 处理导航栏
+        // 更精确地处理导航栏
         if (hasNavigationBar(activity)) {
             val navigationBarHeight = getNavigationBarHeight(activity)
-            if (!isNavigationBarVisible(activity)) {
-                keyboardHeightPx -= navigationBarHeight
+            
+            // 检查导航栏是否真的可见并且在键盘弹起时会被遮挡
+            if (isNavigationBarVisible(activity)) {
+                // 如果键盘高度大于导航栏高度，说明键盘已经遮挡了导航栏
+                if (keyboardHeightPx > navigationBarHeight) {
+                    // 减去导航栏高度，避免重复计算
+                    keyboardHeightPx -= navigationBarHeight
+                    Log.d(TAG, "Adjusted for navigation bar, original: ${keyboardHeightPx + navigationBarHeight}, adjusted: $keyboardHeightPx")
+                }
             }
         }
         
@@ -148,6 +155,7 @@ class KeyboardHeightPlugin : FlutterPlugin, EventChannel.StreamHandler, Activity
         // 应用阈值过滤
         val screenHeightDp = screenHeight / density
         return if (keyboardHeightDp > screenHeightDp * KEYBOARD_HEIGHT_THRESHOLD) {
+            Log.d(TAG, "Final keyboard height: $keyboardHeightDp dp")
             keyboardHeightDp.toDouble()
         } else {
             0.0
