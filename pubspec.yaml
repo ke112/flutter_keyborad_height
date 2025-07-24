@@ -36,7 +36,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.nschairer.keyboard_height_plugin
+        package: com.ke112.keyboard_height_plugin
         pluginClass: KeyboardHeightPlugin
       ios:
         pluginClass: KeyboardHeightPlugin

@@ -1,4 +1,4 @@
-package com.nschairer.keyboard_height_plugin
+package com.ke112.keyboard_height_plugin
 
 import android.app.Activity
 import android.graphics.Rect

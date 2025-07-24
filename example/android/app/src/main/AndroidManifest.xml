@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.nschairer.keyboard_height_plugin_example">
+    package="com.ke112.keyboard_height_plugin_example">
    <application
         android:label="keyboard_height_plugin_example"
         android:name="${applicationName}"
