@@ -20,12 +20,22 @@
 - ✅ **生命周期管理**：完善的资源清理和状态管理
 - ✅ **调试支持**：详细的日志记录，便于问题排查
 
-#### 🆕 夸克式键盘跟随效果 (Example App)
-- ✅ **智能预加载**：应用启动时从本地缓存读取键盘高度，预先定位输入框
-- ✅ **完美贴合**：输入框紧贴键盘顶部，间隙仅8dp确保完美视觉效果
-- ✅ **流畅动画**：使用250ms缓动动画，提供丝滑的键盘跟随体验
-- ✅ **本地缓存**：自动保存键盘高度到SharedPreferences，下次启动直接使用
-- ✅ **状态管理**：智能处理键盘显示/隐藏状态，保持输入框在最佳位置
+#### 🆕 夸克式键盘跟随效果 (Example App) - 全新优化
+- ✅ **智能即时定位**：应用启动时，如有缓存高度则输入框直接出现在键盘位置
+- ✅ **完美跟随**：键盘弹起时输入框上升到键盘位置，键盘收起时跟随下降
+- ✅ **按需动画**：只在键盘实际变化时使用动画，避免不必要的过渡效果
+- ✅ **完美贴合**：输入框距离键盘顶部仅8dp，提供最佳视觉体验
+- ✅ **智能状态管理**：区分初始化、缓存加载、键盘显示/隐藏等状态
+- ✅ **动画优化**：使用AnimationController精确控制位置变化，避免跳跃感
+- ✅ **简洁设计**：移除多余的视觉指示器，专注核心体验
+- ✅ **本地缓存增强**：支持缓存清除功能，记住键盘高度用于下次快速定位
+
+### 夸克效果实现原理
+
+1. **初始化阶段**：从SharedPreferences读取缓存高度，有缓存则直接定位，无缓存从底部开始
+2. **键盘弹起**：监测到键盘高度变化时，使用动画平滑上升到键盘位置
+3. **键盘收起**：输入框跟随键盘动画下降到底部，提供自然的跟随感
+4. **缓存管理**：实时更新缓存高度，确保下次启动时的即时精确定位
 
 ## 📱 支持平台
 
@@ -114,9 +124,9 @@ class _MyWidgetState extends State<MyWidget> {
 }
 ```
 
-### 🎯 夸克式高级用法（推荐）
+### 🎯 夸克式高级用法（最新优化版）
 
-实现类似夸克浏览器的键盘跟随效果，包含本地缓存和流畅动画：
+实现类似夸克浏览器的键盘跟随效果，包含智能预定位、流畅动画和本地缓存：
 
 ```dart
 import 'package:flutter/material.dart';
@@ -132,14 +142,18 @@ class _QuarkStyleKeyboardState extends State<QuarkStyleKeyboard>
     with TickerProviderStateMixin {
   double _keyboardHeight = 0;
   double _cachedKeyboardHeight = 0;
+  double _currentInputBottom = 24; // 当前输入框位置
   bool _isKeyboardVisible = false;
+  bool _isInitialized = false;
   
   late AnimationController _animationController;
-  late Animation<double> _animation;
+  late Animation<double> _positionAnimation;
   final KeyboardHeightPlugin _plugin = KeyboardHeightPlugin();
   final FocusNode _focusNode = FocusNode();
   
   static const String _cacheKey = 'keyboard_height_cache';
+  static const double _defaultBottomPadding = 24.0;
+  static const double _keyboardTopPadding = 8.0;
 
   @override
   void initState() {
@@ -154,7 +168,7 @@ class _QuarkStyleKeyboardState extends State<QuarkStyleKeyboard>
       duration: const Duration(milliseconds: 250),
       vsync: this,
     );
-    _animation = CurvedAnimation(
+    _positionAnimation = CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOutCubic,
     );
@@ -163,45 +177,81 @@ class _QuarkStyleKeyboardState extends State<QuarkStyleKeyboard>
   Future<void> _loadCachedHeight() async {
     final prefs = await SharedPreferences.getInstance();
     final cachedHeight = prefs.getDouble(_cacheKey) ?? 0;
-    if (cachedHeight > 0) {
-      setState(() {
-        _cachedKeyboardHeight = cachedHeight;
-      });
-      _animationController.forward();
-    }
-  }
-
-  void _setupKeyboardListener() {
-    _plugin.onKeyboardHeightChanged((double height) {
-      _saveHeight(height);
+    
+    setState(() {
+      _cachedKeyboardHeight = cachedHeight;
+      _isInitialized = true;
       
-      setState(() {
-        _keyboardHeight = height;
-        _isKeyboardVisible = height > 0;
-        if (height > 0) _cachedKeyboardHeight = height;
-      });
-
-      if (_isKeyboardVisible) {
-        _animationController.forward();
-      } else if (_cachedKeyboardHeight == 0) {
-        _animationController.reverse();
+      if (cachedHeight > 0) {
+        // 有缓存时，直接定位到缓存位置，无动画
+        _currentInputBottom = cachedHeight + _keyboardTopPadding;
+      } else {
+        // 无缓存时，使用默认位置
+        _currentInputBottom = _defaultBottomPadding;
       }
     });
   }
 
+  void _setupKeyboardListener() {
+    _plugin.onKeyboardHeightChanged((double height) {
+      final bool keyboardVisible = height > 0;
+      double targetBottom;
+      
+      if (keyboardVisible) {
+        // 键盘显示时：定位到键盘顶部
+        targetBottom = height + _keyboardTopPadding;
+      } else {
+        // 键盘隐藏时：总是回到底部
+        targetBottom = _defaultBottomPadding;
+      }
+
+      setState(() {
+        _keyboardHeight = height;
+        _isKeyboardVisible = keyboardVisible;
+        
+        if (keyboardVisible && height != _cachedKeyboardHeight) {
+          _cachedKeyboardHeight = height;
+          _saveHeight(height);
+        }
+      });
+
+      // 只有在目标位置和当前位置不同时才执行动画
+      if (targetBottom != _currentInputBottom) {
+        _animateToPosition(targetBottom);
+      }
+    });
+  }
+
+  void _animateToPosition(double targetBottom) {
+    _animationController.reset();
+    _positionAnimation = Tween<double>(
+      begin: _currentInputBottom,
+      end: targetBottom,
+    ).animate(_animationController);
+    
+    _animationController.forward().then((_) {
+      setState(() {
+        _currentInputBottom = targetBottom;
+      });
+    });
+  }
+
   Future<void> _saveHeight(double height) async {
+    if (height <= 0) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_cacheKey, height);
   }
 
-  double _calculateInputBottom() {
-    if (_isKeyboardVisible) {
-      return _keyboardHeight + 8; // 完美贴合
-    } else if (_cachedKeyboardHeight > 0) {
-      return _cachedKeyboardHeight + 8; // 使用缓存位置
-    } else {
-      return 24; // 默认底部位置
+  double _getCurrentInputBottom() {
+    if (!_isInitialized) {
+      return _defaultBottomPadding;
     }
+    
+    if (_animationController.isAnimating) {
+      return _positionAnimation.value;
+    }
+    
+    return _currentInputBottom;
   }
 
   @override
@@ -212,33 +262,49 @@ class _QuarkStyleKeyboardState extends State<QuarkStyleKeyboard>
         children: [
           // 主要内容
           Center(
-            child: Text('夸克式键盘效果演示'),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '夸克式键盘效果演示',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 16),
+                Text('键盘高度: ${_keyboardHeight.toStringAsFixed(1)} dp'),
+                if (_cachedKeyboardHeight > 0)
+                  Text('缓存高度: ${_cachedKeyboardHeight.toStringAsFixed(1)} dp'),
+              ],
+            ),
           ),
           
-          // 动态跟随的输入框
+          // 智能跟随的输入框
           AnimatedBuilder(
-            animation: _animation,
+            animation: _positionAnimation,
             builder: (context, child) {
-              final targetBottom = _calculateInputBottom();
-              final animatedBottom = _isKeyboardVisible || _cachedKeyboardHeight > 0
-                  ? targetBottom
-                  : (24 + (targetBottom - 24) * _animation.value);
-              
               return Positioned(
-                bottom: animatedBottom,
+                bottom: _getCurrentInputBottom(),
                 left: 16,
                 right: 16,
-                child: Material(
-                  elevation: 8,
-                  borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  padding: EdgeInsets.all(16),
                   child: TextField(
                     focusNode: _focusNode,
+                    style: TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: '体验夸克式键盘跟随效果...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: EdgeInsets.all(16),
+                      hintStyle: TextStyle(color: Colors.grey),
+                      border: InputBorder.none,
                     ),
                   ),
                 ),
@@ -246,6 +312,19 @@ class _QuarkStyleKeyboardState extends State<QuarkStyleKeyboard>
             },
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // 清除缓存演示
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove(_cacheKey);
+          setState(() {
+            _cachedKeyboardHeight = 0;
+          });
+          _animateToPosition(_defaultBottomPadding);
+        },
+        child: Icon(Icons.clear),
+        tooltip: '清除缓存',
       ),
     );
   }
@@ -408,30 +487,6 @@ Example App 现在包含完整的夸克式键盘跟随效果实现：
 - **检查**: 确保使用了TickerProviderStateMixin
 - **确认**: 动画控制器在dispose中正确释放
 - **优化**: 检查SharedPreferences的异步操作是否正确处理
-
-## �� 迁移指南
-
-从旧版本升级到v0.1.5+：
-
-1. 更新依赖版本
-2. 添加dispose()调用（如果缺少）
-3. 可选：使用新的API获取监听状态
-4. 可选：集成夸克式键盘效果
-
-```dart
-// 旧版本
-_plugin.onKeyboardHeightChanged(callback);
-
-// 新版本（推荐）
-_plugin.onKeyboardHeightChanged(callback);
-// 可以检查状态
-if (_plugin.isListening) {
-  print('正在监听键盘变化');
-}
-
-// 夸克效果版本
-// 参考上面的夸克式高级用法示例
-```
 
 ## 📝 更新日志
 
