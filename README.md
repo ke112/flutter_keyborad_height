@@ -522,6 +522,9 @@ Example App 现在包含完整的夸克式键盘跟随效果实现：
 - **缓存清除功能**：重置所有缓存数据
 - **状态实时显示**：监听器状态和缓存状态展示
 
----
+## 🤝 效果展示
+<p align="center">
+  <img src="assets/images/demo1.png" alt="App Screenshot">
+</p>
 
 如果这个插件对您有帮助，请给我们一个⭐️！
