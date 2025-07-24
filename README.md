@@ -523,8 +523,8 @@ Example App 现在包含完整的夸克式键盘跟随效果实现：
 - **状态实时显示**：监听器状态和缓存状态展示
 
 ## 🤝 效果展示
-<p align="center">
-  <img src="assets/images/demo1.png" alt="App Screenshot">
+<p align="left">
+  <img src="assets/images/demo1.png" width="200">
 </p>
 
 如果这个插件对您有帮助，请给我们一个⭐️！
